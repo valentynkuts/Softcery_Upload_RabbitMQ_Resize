@@ -1,0 +1,1 @@
+# Softcery_Upload_RabbitMQ_Resize
