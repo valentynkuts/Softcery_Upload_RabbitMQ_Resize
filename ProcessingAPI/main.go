@@ -1,46 +1,55 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"image"
+	"image/gif"
+	"image/jpeg"
 	"image/png"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/disintegration/imaging"
 	"github.com/streadway/amqp"
 )
 
-func processing(w http.ResponseWriter, r *http.Request) {
+const (
+	IMAGES_PATH = "../temp_images/"
+	BROKER_URL  = "amqp://guest:guest@localhost:5672/"
+)
 
-	fmt.Fprintf(w, "Processing\n")
+func resizeImage(path string, id string) {
 
-	consumer()
-}
+	fmt.Println(id)
+	images_path := fmt.Sprintf("%s%s", path, id)
 
-func setupRoutes() {
-	http.HandleFunc("/", processing)
-	http.ListenAndServe(":8081", nil)
-
-}
-
-func serveFrames(imgByte []byte, id string) {
-
-	img, _, err := image.Decode(bytes.NewReader(imgByte))
+	file, err := os.Open(images_path)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
+	defer file.Close()
 
-	dstImage128 := imaging.Resize(img, 128, 128, imaging.Lanczos)
+	imageData, imageType, err := image.Decode(file)
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Println("file type: ", imageType)
 
-	path := fmt.Sprintf("photo/%s", id)
-	fmt.Println(path)
-	out, _ := os.Create(path)
+	dstImage128 := imaging.Resize(imageData, 128, 128, imaging.Lanczos)
+
+	out, _ := os.Create(images_path)
 	defer out.Close()
 
-	err = png.Encode(out, dstImage128)
+	switch imageType {
+
+	case "jpg", "jpeg":
+		err = jpeg.Encode(out, dstImage128, nil)
+	case "gif":
+		err = gif.Encode(out, dstImage128, nil)
+	default:
+		err = png.Encode(out, dstImage128)
+
+	}
 
 	if err != nil {
 		log.Println(err)
@@ -49,7 +58,7 @@ func serveFrames(imgByte []byte, id string) {
 }
 
 func consumer() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(BROKER_URL)
 	if err != nil {
 		fmt.Println("Failed Initializing Broker Connection")
 		panic(err)
@@ -66,7 +75,7 @@ func consumer() {
 	}
 
 	msgs, err := ch.Consume(
-		"Test1",
+		"ResizeImage",
 		"",
 		true,
 		false,
@@ -80,11 +89,9 @@ func consumer() {
 	forever := make(chan bool)
 	go func() {
 		for d := range msgs {
-			//fmt.Printf("Recieved Message: %s\n", d.Body)
-			//fmt.Println(d.Body)
-			fmt.Println(d.MessageId)
-			id := string(d.MessageId)
-			serveFrames(d.Body, id)
+			fmt.Printf("Recieved Message: %s\n", d.Body)
+			file_id := string(d.Body)
+			resizeImage(IMAGES_PATH, file_id)
 		}
 	}()
 
@@ -93,8 +100,9 @@ func consumer() {
 	<-forever
 
 }
+
 func main() {
-	fmt.Println("Processing")
-	setupRoutes()
+
+	consumer()
 
 }
