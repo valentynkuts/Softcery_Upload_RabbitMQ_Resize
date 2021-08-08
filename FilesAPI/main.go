@@ -65,7 +65,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	len := len(arr_dir_filename)
 	file_id := arr_dir_filename[len-1]
 
-	fmt.Printf("file ID: %+v\n", file_id)
+	fmt.Printf("File ID: %+v\n", file_id)
 
 	defer tempFile.Close()
 

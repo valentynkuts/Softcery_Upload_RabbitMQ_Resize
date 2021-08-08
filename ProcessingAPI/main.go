@@ -20,7 +20,6 @@ const (
 
 func resizeImage(path string, id string) {
 
-	fmt.Println(id)
 	images_path := fmt.Sprintf("%s%s", path, id)
 
 	file, err := os.Open(images_path)
@@ -29,18 +28,18 @@ func resizeImage(path string, id string) {
 	}
 	defer file.Close()
 
-	imageData, imageType, err := image.Decode(file)
+	imageData, imageExt, err := image.Decode(file)
 	if err != nil {
 		log.Println(err)
 	}
-	fmt.Println("file type: ", imageType)
+	fmt.Println("File extension: ", imageExt)
 
 	dstImage128 := imaging.Resize(imageData, 128, 128, imaging.Lanczos)
 
 	out, _ := os.Create(images_path)
 	defer out.Close()
 
-	switch imageType {
+	switch imageExt {
 
 	case "jpg", "jpeg":
 		err = jpeg.Encode(out, dstImage128, nil)
@@ -83,8 +82,6 @@ func consumer() {
 		false,
 		nil,
 	)
-
-	fmt.Println(msgs)
 
 	forever := make(chan bool)
 	go func() {
